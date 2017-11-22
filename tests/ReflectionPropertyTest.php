@@ -2,7 +2,6 @@
 namespace Go\ParserReflection;
 
 use Go\ParserReflection\Stub\ClassWithProperties;
-use PhpParser\Lexer;
 
 class ReflectionPropertyTest extends AbstractTestCase
 {
@@ -23,67 +22,35 @@ class ReflectionPropertyTest extends AbstractTestCase
     /**
      * Performs method-by-method comparison with original reflection
      *
-     * @dataProvider caseProvider
+     * @dataProvider methodCaseProvider
      *
-     * @param ReflectionClass     $parsedClass Parsed class
-     * @param \ReflectionProperty $refProperty Property to analyze
-     * @param string              $getterName  Name of the reflection method to test
+     * @param ReflectionClass $parsedClass Parsed class
+     * @param string $getterName Name of the reflection method to test
      */
     public function testReflectionMethodParity(
         ReflectionClass $parsedClass,
-        \ReflectionProperty $refProperty,
         $getterName
-    )
-    {
-        $propertyName   = $refProperty->getName();
-        $className      = $parsedClass->getName();
-        $parsedProperty = $parsedClass->getProperty($propertyName);
-        $expectedValue  = $refProperty->$getterName();
-        $actualValue    = $parsedProperty->$getterName();
+    ) {
+        $className = $parsedClass->getName();
+        $refClass  = new \ReflectionClass($className);
+
+        $expectedValue = $refClass->{$getterName}();
+        $actualValue   = $parsedClass->{$getterName}();
         $this->assertSame(
             $expectedValue,
             $actualValue,
-            "{$getterName}() for property {$className}->{$propertyName} should be equal"
+            "{$getterName}() for class {$className} should be equal"
         );
     }
 
     /**
-     * Provides full test-case list in the form [ParsedClass, ReflectionMethod, getter name to check]
+     * Provides full test-case list in the form [ParsedClass, getter name to check]
      *
      * @return array
      */
-    public function caseProvider()
+    public function methodCaseProvider()
     {
-        $allNameGetters = $this->getGettersToCheck();
-
-        $testCases = [];
-        $files     = $this->getFilesToAnalyze();
-        foreach ($files as $fileList) {
-            foreach ($fileList as $fileName) {
-                $fileName = stream_resolve_include_path($fileName);
-                $fileNode = ReflectionEngine::parseFile($fileName);
-
-                $reflectionFile = new ReflectionFile($fileName, $fileNode);
-                include_once $fileName;
-                foreach ($reflectionFile->getFileNamespaces() as $fileNamespace) {
-                    foreach ($fileNamespace->getClasses() as $parsedClass) {
-                        $refClass = new \ReflectionClass($parsedClass->getName());
-                        foreach ($refClass->getProperties() as $classProperty) {
-                            $caseName = $parsedClass->getName() . '->' . $classProperty->getName();
-                            foreach ($allNameGetters as $getterName) {
-                                $testCases[$caseName . ', ' . $getterName] = [
-                                    $parsedClass,
-                                    $classProperty,
-                                    $getterName
-                                ];
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return $testCases;
+        return $this->caseProvider($this->getGettersToCheck());
     }
 
     public function testSetAccessibleMethod()
@@ -140,5 +107,51 @@ class ReflectionPropertyTest extends AbstractTestCase
         ];
 
         return $allNameGetters;
+    }
+
+    /**
+     * @param string[] $membersToCheck
+     * @return array
+     */
+    protected function caseProvider($membersToCheck)
+    {
+        $testCases = [];
+        $files = $this->getFilesToAnalyze();
+        foreach ($files as $fileList) {
+            foreach ($fileList as $fileName) {
+                $fileName = stream_resolve_include_path($fileName);
+                $fileNode = ReflectionEngine::parseFile($fileName);
+
+                $reflectionFile = new ReflectionFile($fileName, $fileNode);
+                include_once $fileName;
+                foreach ($reflectionFile->getFileNamespaces() as $fileNamespace) {
+                    foreach ($fileNamespace->getClasses() as $refClass) {
+                        $qcn = ltrim($refClass->getName(), '\\'); // workaround for #80
+
+                        foreach ($refClass->getProperties() as $refProperty) {
+                            if (!$refProperty instanceof ReflectionMethod) {
+                                continue;
+                            }
+                            $propertyName = $refProperty->getName();
+
+                            $properties = [
+                                $qcn . '->' . $propertyName => [$refProperty, new \ReflectionProperty($qcn, $propertyName)],
+                            ];
+                            foreach ($properties as $caseName => list($parsedClass, $originalClass)) {
+                                foreach ($membersToCheck as $memberToCheck) {
+                                    $testCases[$caseName . ', ' . $memberToCheck] = [
+                                        $originalClass,
+                                        $parsedClass,
+                                        $memberToCheck,
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return $testCases;
     }
 }

@@ -61,71 +61,32 @@ class ReflectionMethodTest extends AbstractTestCase
     /**
      * Performs method-by-method comparison with original reflection
      *
-     * @dataProvider caseProvider
+     * @dataProvider methodCaseProvider
      *
-     * @param ReflectionClass   $parsedClass Parsed class
-     * @param \ReflectionMethod $refMethod Method to analyze
+     * @param \ReflectionMethod $refMethod Original reflection method
+     * @param ReflectionMethod $parsedMethod Parsed reflection method
      * @param string                  $getterName Name of the reflection method to test
      */
     public function testReflectionMethodParity(
-        ReflectionClass $parsedClass,
         \ReflectionMethod $refMethod,
+        ReflectionMethod $parsedMethod,
         $getterName
     ) {
-        $methodName   = $refMethod->getName();
-        $className    = $parsedClass->getName();
-        $parsedMethod = $parsedClass->getMethod($methodName);
-        if (empty($parsedMethod)) {
-            echo "Couldn't find method $methodName in the $className", PHP_EOL;
-            return;
-        }
-
-        $expectedValue = $refMethod->$getterName();
-        $actualValue   = $parsedMethod->$getterName();
         $this->assertSame(
-            $expectedValue,
-            $actualValue,
-            "$getterName() for method $className->$methodName() should be equal"
+            $refMethod->{$getterName}(),
+            $parsedMethod->{$getterName}(),
+            "{$getterName}() for method {$refMethod->class}->{$getterName}() should be equal"
         );
     }
 
     /**
-     * Provides full test-case list in the form [ParsedClass, ReflectionMethod, getter name to check]
+     * Provides full test-case list in the form [ParsedClass, getter name to check]
      *
      * @return array
      */
-    public function caseProvider()
+    public function methodCaseProvider()
     {
-        $allNameGetters = $this->getGettersToCheck();
-
-        $testCases = [];
-        $files     = $this->getFilesToAnalyze();
-        foreach ($files as $fileList) {
-            foreach ($fileList as $fileName) {
-                $fileName = stream_resolve_include_path($fileName);
-                $fileNode = ReflectionEngine::parseFile($fileName);
-
-                $reflectionFile = new ReflectionFile($fileName, $fileNode);
-                include_once $fileName;
-                foreach ($reflectionFile->getFileNamespaces() as $fileNamespace) {
-                    foreach ($fileNamespace->getClasses() as $parsedClass) {
-                        $refClass = new \ReflectionClass($parsedClass->getName());
-                        foreach ($refClass->getMethods() as $classMethod) {
-                            $caseName = $parsedClass->getName() . '->' . $classMethod->getName() . '()';
-                            foreach ($allNameGetters as $getterName) {
-                                $testCases[$caseName . ', ' . $getterName] = [
-                                    $parsedClass,
-                                    $classMethod,
-                                    $getterName
-                                ];
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return $testCases;
+        return $this->caseProvider($this->getGettersToCheck());
     }
 
 
@@ -154,5 +115,51 @@ class ReflectionMethodTest extends AbstractTestCase
         }
 
         return $allNameGetters;
+    }
+
+    /**
+     * @param string[] $membersToCheck
+     * @return array
+     */
+    protected function caseProvider($membersToCheck)
+    {
+        $testCases = [];
+        $files = $this->getFilesToAnalyze();
+        foreach ($files as $fileList) {
+            foreach ($fileList as $fileName) {
+                $fileName = stream_resolve_include_path($fileName);
+                $fileNode = ReflectionEngine::parseFile($fileName);
+
+                $reflectionFile = new ReflectionFile($fileName, $fileNode);
+                include_once $fileName;
+                foreach ($reflectionFile->getFileNamespaces() as $fileNamespace) {
+                    foreach ($fileNamespace->getClasses() as $refClass) {
+                        $qcn = ltrim($refClass->getName(), '\\'); // workaround for #80
+
+                        foreach ($refClass->getMethods() as $refMethod) {
+                            if (!$refMethod instanceof ReflectionMethod) {
+                                continue;
+                            }
+                            $methodName = $refMethod->getName();
+
+                            $methods = [
+                                $qcn . '->' . $methodName . '()' => [$refMethod, new \ReflectionMethod($qcn, $methodName)],
+                            ];
+                            foreach ($methods as $caseName => list($parsedClass, $originalClass)) {
+                                foreach ($membersToCheck as $memberToCheck) {
+                                    $testCases[$caseName . ', ' . $memberToCheck] = [
+                                        $originalClass,
+                                        $parsedClass,
+                                        $memberToCheck,
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return $testCases;
     }
 }

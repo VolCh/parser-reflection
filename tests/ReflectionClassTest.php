@@ -1,4 +1,5 @@
 <?php
+
 namespace Go\ParserReflection;
 
 use Go\ParserReflection\Stub\ClassWithConstantsAndInheritance;
@@ -47,21 +48,21 @@ class ReflectionClassTest extends AbstractTestCase
     /**
      * Performs method-by-method comparison with original reflection
      *
-     * @dataProvider caseProvider
+     * @dataProvider methodCaseProvider
      *
-     * @param ReflectionClass   $parsedClass Parsed class
-     * @param \ReflectionMethod $refMethod Method to analyze
-     * @param string                  $getterName Name of the reflection method to test
+     * @param \ReflectionClass $refClass Original reflection class
+     * @param ReflectionClass $parsedClass Parsed class
+     * @param string $getterName Name of the reflection method to test
      */
     public function testReflectionMethodParity(
+        \ReflectionClass $refClass,
         ReflectionClass $parsedClass,
         $getterName
     ) {
         $className = $parsedClass->getName();
-        $refClass  = new \ReflectionClass($className);
 
-        $expectedValue = $refClass->$getterName();
-        $actualValue   = $parsedClass->$getterName();
+        $expectedValue = $refClass->{$getterName}();
+        $actualValue   = $parsedClass->{$getterName}();
         $this->assertSame(
             $expectedValue,
             $actualValue,
@@ -70,38 +71,13 @@ class ReflectionClassTest extends AbstractTestCase
     }
 
     /**
-     * Provides full test-case list in the form [ParsedClass, ReflectionMethod, getter name to check]
+     * Provides full test-case list in the form [ParsedClass, getter name to check]
      *
      * @return array
      */
-    public function caseProvider()
+    public function methodCaseProvider()
     {
-        $allNameGetters = $this->getGettersToCheck();
-
-        $testCases = [];
-        $files     = $this->getFilesToAnalyze();
-        foreach ($files as $fileList) {
-            foreach ($fileList as $fileName) {
-                $fileName = stream_resolve_include_path($fileName);
-                $fileNode = ReflectionEngine::parseFile($fileName);
-
-                $reflectionFile = new ReflectionFile($fileName, $fileNode);
-                include_once $fileName;
-                foreach ($reflectionFile->getFileNamespaces() as $fileNamespace) {
-                    foreach ($fileNamespace->getClasses() as $parsedClass) {
-                        $caseName = $parsedClass->getName();
-                        foreach ($allNameGetters as $getterName) {
-                            $testCases[$caseName . ', ' . $getterName] = [
-                                $parsedClass,
-                                $getterName
-                            ];
-                        }
-                    }
-                }
-            }
-        }
-
-        return $testCases;
+        return $this->caseProvider($this->getGettersToCheck());
     }
 
     /**
@@ -203,8 +179,7 @@ class ReflectionClassTest extends AbstractTestCase
             $this->assertSame('test', $originalRefClass1->getStaticPropertyValue('h'));
             $this->assertSame('different value', $parsedRefClass2->getStaticPropertyValue('a'));
             $this->assertSame('different value', $originalRefClass2->getStaticPropertyValue('a'));
-        }
-        catch (\Exception $e) {
+        } catch (\Exception $e) {
             $ex = $e;
         }
         // I didn't want to write a tearDown() for one test.
@@ -289,5 +264,44 @@ class ReflectionClassTest extends AbstractTestCase
         ];
 
         return $allNameGetters;
+    }
+
+    /**
+     * @param string[] $membersToCheck
+     * @return array
+     */
+    protected function caseProvider($membersToCheck)
+    {
+        $testCases = [];
+        $files = $this->getFilesToAnalyze();
+        foreach ($files as $fileList) {
+            foreach ($fileList as $fileName) {
+                $fileName = stream_resolve_include_path($fileName);
+                $fileNode = ReflectionEngine::parseFile($fileName);
+
+                $reflectionFile = new ReflectionFile($fileName, $fileNode);
+                include_once $fileName;
+                foreach ($reflectionFile->getFileNamespaces() as $fileNamespace) {
+                    foreach ($fileNamespace->getClasses() as $refClass) {
+                        $qcn = ltrim($refClass->getName(), '\\'); // workaround for #80
+
+                        $classes = [
+                            $qcn => [$refClass, new \ReflectionClass($qcn)],
+                        ];
+                        foreach ($classes as $caseName => list($parsedClass, $originalClass)) {
+                            foreach ($membersToCheck as $memberToCheck) {
+                                $testCases[$caseName . ', ' . $memberToCheck] = [
+                                    $originalClass,
+                                    $parsedClass,
+                                    $memberToCheck,
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return $testCases;
     }
 }
