@@ -71,6 +71,31 @@ class ReflectionClassTest extends AbstractTestCase
     }
 
     /**
+     * Performs property-by-property comparison with original reflection
+     *
+     * @dataProvider propertyCaseProvider
+     *
+     * @param \ReflectionClass $refClass Original reflection class
+     * @param ReflectionClass $parsedClass Parsed class
+     * @param string $propertyName Name of the reflection method to test
+     */
+    public function testReflectionPropertyParity(
+        \ReflectionClass $refClass,
+        ReflectionClass $parsedClass,
+        $propertyName
+    ) {
+        $className = $refClass->getName();
+
+        $expectedValue = $refClass->{$propertyName};
+        $actualValue = $parsedClass->{$propertyName};
+        $this->assertSame(
+            $expectedValue,
+            $actualValue,
+            "\${$propertyName} for class {$className} should be equal"
+        );
+    }
+
+    /**
      * Provides full test-case list in the form [ParsedClass, getter name to check]
      *
      * @return array
@@ -78,6 +103,16 @@ class ReflectionClassTest extends AbstractTestCase
     public function methodCaseProvider()
     {
         return $this->caseProvider($this->getGettersToCheck());
+    }
+
+    /**
+     * Provides full test-case list in the form [ParsedClass, property name to check]
+     *
+     * @return array
+     */
+    public function propertyCaseProvider()
+    {
+        return $this->caseProvider($this->getPropertiesToCheck());
     }
 
     /**
@@ -264,6 +299,20 @@ class ReflectionClassTest extends AbstractTestCase
         ];
 
         return $allNameGetters;
+    }
+
+    /**
+     * Returns list of ReflectionProperty that be checked
+     *
+     * @return array
+     */
+    protected function getPropertiesToCheck()
+    {
+        $names = [
+            'name',
+        ];
+
+        return $names;
     }
 
     /**

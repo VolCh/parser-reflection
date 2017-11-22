@@ -91,6 +91,14 @@ abstract class AbstractTestCase extends \PHPUnit_Framework_TestCase
      */
     abstract protected function getGettersToCheck();
 
+
+    /**
+     * Returns list of ReflectionProperty that be checked directly
+     *
+     * @return array
+     */
+    abstract protected function getPropertiesToCheck();
+
     /**
      * Setups file for parsing
      *

@@ -44,6 +44,27 @@ class ReflectionPropertyTest extends AbstractTestCase
     }
 
     /**
+     * Performs property-by-property comparison with original reflection
+     *
+     * @dataProvider propertyCaseProvider
+     *
+     * @param \ReflectionMethod $refMethod Original reflection method
+     * @param ReflectionMethod $parsedMethod Parsed reflection method
+     * @param string $propertyName
+     */
+    public function testReflectionPropertyParity(
+        \ReflectionProperty $refMethod,
+        ReflectionProperty $parsedMethod,
+        $propertyName
+    ) {
+        $this->assertSame(
+            $refMethod->{$propertyName},
+            $parsedMethod->{$propertyName},
+            "\${$propertyName} for class {$refMethod->class} should be equal"
+        );
+    }
+
+    /**
      * Provides full test-case list in the form [ParsedClass, getter name to check]
      *
      * @return array
@@ -51,6 +72,16 @@ class ReflectionPropertyTest extends AbstractTestCase
     public function methodCaseProvider()
     {
         return $this->caseProvider($this->getGettersToCheck());
+    }
+
+    /**
+     * Provides full test-case list in the form [ParsedClass, property name to check]
+     *
+     * @return array
+     */
+    public function propertyCaseProvider()
+    {
+        return $this->caseProvider($this->getPropertiesToCheck());
     }
 
     public function testSetAccessibleMethod()
@@ -110,6 +141,20 @@ class ReflectionPropertyTest extends AbstractTestCase
     }
 
     /**
+     * Returns list of ReflectionProperty that be checked
+     *
+     * @return array
+     */
+    protected function getPropertiesToCheck()
+    {
+        $names = [
+            'name',
+        ];
+
+        return $names;
+    }
+
+    /**
      * @param string[] $membersToCheck
      * @return array
      */
@@ -135,7 +180,7 @@ class ReflectionPropertyTest extends AbstractTestCase
                             $propertyName = $refProperty->getName();
 
                             $properties = [
-                                $qcn . '->' . $propertyName => [$refProperty, new \ReflectionProperty($qcn, $propertyName)],
+                                $qcn . '->$' . $propertyName => [$refProperty, new \ReflectionProperty($qcn, $propertyName)],
                             ];
                             foreach ($properties as $caseName => list($parsedClass, $originalClass)) {
                                 foreach ($membersToCheck as $memberToCheck) {
