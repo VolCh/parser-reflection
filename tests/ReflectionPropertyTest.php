@@ -172,6 +172,7 @@ class ReflectionPropertyTest extends AbstractTestCase
                 foreach ($reflectionFile->getFileNamespaces() as $fileNamespace) {
                     foreach ($fileNamespace->getClasses() as $refClass) {
                         $qcn = ltrim($refClass->getName(), '\\'); // workaround for #80
+                        $fqcn = '\\' . $qcn;
 
                         foreach ($refClass->getProperties() as $refProperty) {
                             if (!$refProperty instanceof ReflectionMethod) {
@@ -181,6 +182,7 @@ class ReflectionPropertyTest extends AbstractTestCase
 
                             $properties = [
                                 $qcn . '->$' . $propertyName => [$refProperty, new \ReflectionProperty($qcn, $propertyName)],
+                                $fqcn . '->$' . $propertyName => [new ReflectionProperty($fqcn, $propertyName, $refProperty->getNode()), new \ReflectionProperty($qcn, $propertyName)],
                             ];
                             foreach ($properties as $caseName => list($parsedClass, $originalClass)) {
                                 foreach ($membersToCheck as $memberToCheck) {

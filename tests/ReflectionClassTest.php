@@ -333,9 +333,10 @@ class ReflectionClassTest extends AbstractTestCase
                 foreach ($reflectionFile->getFileNamespaces() as $fileNamespace) {
                     foreach ($fileNamespace->getClasses() as $refClass) {
                         $qcn = ltrim($refClass->getName(), '\\'); // workaround for #80
-
+                        $fqcn = '\\' . $qcn;
                         $classes = [
                             $qcn => [$refClass, new \ReflectionClass($qcn)],
+                            $fqcn => [new ReflectionClass($fqcn), new \ReflectionClass($fqcn)],
                         ];
                         foreach ($classes as $caseName => list($parsedClass, $originalClass)) {
                             foreach ($membersToCheck as $memberToCheck) {

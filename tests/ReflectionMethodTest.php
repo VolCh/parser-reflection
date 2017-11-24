@@ -180,6 +180,7 @@ class ReflectionMethodTest extends AbstractTestCase
                 foreach ($reflectionFile->getFileNamespaces() as $fileNamespace) {
                     foreach ($fileNamespace->getClasses() as $refClass) {
                         $qcn = ltrim($refClass->getName(), '\\'); // workaround for #80
+                        $fqcn = '\\' . $qcn;
 
                         foreach ($refClass->getMethods() as $refMethod) {
                             if (!$refMethod instanceof ReflectionMethod) {
@@ -189,6 +190,7 @@ class ReflectionMethodTest extends AbstractTestCase
 
                             $methods = [
                                 $qcn . '->' . $methodName . '()' => [$refMethod, new \ReflectionMethod($qcn, $methodName)],
+                                $fqcn . '->' . $methodName . '()' => [new ReflectionMethod($fqcn, $methodName, $refMethod->getNode()), new \ReflectionMethod($fqcn, $methodName)],
                             ];
                             foreach ($methods as $caseName => list($parsedClass, $originalClass)) {
                                 foreach ($membersToCheck as $memberToCheck) {
